@@ -1,0 +1,9 @@
+.env
+.env.local
+.env.*.local
+.git
+.mongodb-memory-server
+coverage
+test
+scripts
+BACKEND_COMPLETION_REPORT.md

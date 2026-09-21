@@ -6,6 +6,7 @@ const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
 const { getConfig } = require('./config');
 const routes = require('./routes');
+const { ensureDatabase } = require('./middleware/ensureDatabase');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 function createApp() {
@@ -13,6 +14,7 @@ function createApp() {
   const app = express();
 
   app.disable('x-powered-by');
+  app.set('trust proxy', 1);
   app.use(helmet());
   app.use(cors());
   app.use(express.json({ limit: config.bodySizeLimit }));
@@ -22,6 +24,7 @@ function createApp() {
       allowDots: true,
     })
   );
+  app.use(ensureDatabase);
 
   app.use(routes);
   app.use(notFoundHandler);

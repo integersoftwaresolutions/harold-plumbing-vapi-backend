@@ -54,7 +54,7 @@ test/           automated integration tests
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 18+ locally (Vercel uses its current Node LTS)
 - MongoDB 6+ (local or Atlas)
 - npm
 
@@ -355,16 +355,64 @@ X-Vapi-Tool-Secret: <value of VAPI_TOOL_SECRET if enabled>
 
 This backend does **not** configure the Vapi assistant, system prompt, phone number, or tool schemas inside Vapi — only the HTTP APIs those tools call.
 
-## Deployment
+## Deployment (Vercel)
 
-1. Provision MongoDB (Atlas recommended)
-2. Set env vars on the host (`MONGODB_URI`, `PORT`, optional `VAPI_TOOL_SECRET`, `NODE_ENV=production`)
-3. Deploy the Node process (`npm install --omit=dev && npm start`)
-4. Expose HTTPS publicly
-5. Point Vapi tool server URLs at the deployment
-6. Confirm `GET /health` returns `mongodb: "connected"`
+This repo is set up to import into Vercel as-is. Vercel runs Express as a serverless function (`api/index.js`); do not use `npm start` on Vercel.
 
-Suitable for Render, Railway, Fly.io, AWS, Azure, GCP, or any Node host.
+### 1. MongoDB Atlas
+
+1. Create a cluster and a database user
+2. Get a connection string, for example:
+
+```text
+mongodb+srv://USER:PASSWORD@CLUSTER/harolds-plumbing?retryWrites=true&w=majority
+```
+
+3. **Network Access:** allow `0.0.0.0/0` (Vercel serverless IPs are dynamic). Restricting to a single IP will fail.
+
+### 2. Import the GitHub repo in Vercel
+
+1. [Vercel New Project](https://vercel.com/new) → Import `harold-plumbing-vapi-backend`
+2. Framework Preset: leave as **Other** (or empty). `vercel.json` already configures the build
+3. Root Directory: `.` (default)
+4. Add environment variables (Production, Preview, and Development):
+
+| Variable | Required | Value |
+|---|---|---|
+| `MONGODB_URI` | Yes | Atlas connection string |
+| `VAPI_TOOL_SECRET` | Recommended | Long random secret Vapi will send as `X-Vapi-Tool-Secret` |
+| `NODE_ENV` | No | Vercel sets `production` automatically |
+| `PORT` | No | Do not set — Vercel ignores it |
+
+5. Deploy
+
+### 3. Confirm
+
+After deploy, open:
+
+```text
+https://YOUR-PROJECT.vercel.app/health
+```
+
+You should see `"mongodb": "connected"`. If you get `SERVICE_UNAVAILABLE` or a timeout, Atlas network access is almost always the cause (`0.0.0.0/0` not allowed, or a bad `MONGODB_URI`).
+
+### 4. Point Vapi at Vercel
+
+Use the Vercel URL as the tool server base:
+
+| Tool | Method | URL |
+|---|---|---|
+| `check_availability` | POST | `https://YOUR-PROJECT.vercel.app/api/check-availability` |
+| `book_inspection` | POST | `https://YOUR-PROJECT.vercel.app/api/book-inspection` |
+| `log_spam` | POST | `https://YOUR-PROJECT.vercel.app/api/log-spam` |
+
+If `VAPI_TOOL_SECRET` is set, every `/api/*` call must include:
+
+```http
+X-Vapi-Tool-Secret: <same value as in Vercel>
+```
+
+Local `npm start` is unchanged (`src/server.js`). Other Node hosts (Render, Railway, Fly.io) can still run `npm start`.
 
 ### Production considerations
 
